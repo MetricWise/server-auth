@@ -17,6 +17,8 @@ class TestResUsers(SavepointCase):
         }
         cls.password = "asdQWE123$%^"
         cls.main_comp = cls.env.ref("base.main_company")
+        cls.main_comp.password_estimate = 0
+        cls.main_comp.password_length = 4
         cls.vals = {
             "name": "User",
             "login": cls.login,
@@ -25,6 +27,9 @@ class TestResUsers(SavepointCase):
         }
         cls.model_obj = cls.env["res.users"]
         cls.rec_id = cls._new_record()
+
+        Params = cls.env["ir.config_parameter"].sudo()
+        Params.set_param("auth_password_policy.minlength", 4)
 
     @classmethod
     def _new_record(cls):
@@ -67,8 +72,33 @@ class TestResUsers(SavepointCase):
         )
 
     def test_check_password_raises_error_for_invalid_password(self):
+        self.main_comp.password_length = 12
         with self.assertRaises(UserError):
             self.rec_id._check_password("password")
+
+    def test_check_password_lower(self):
+        self.rec_id._check_password("AB3!")
+        self.main_comp.password_lower = 1
+        with self.assertRaises(UserError):
+            self.rec_id._check_password("AB3!")
+
+    def test_check_password_numeric(self):
+        self.rec_id._check_password("aBc!")
+        self.main_comp.password_numeric = 1
+        with self.assertRaises(UserError):
+            self.rec_id._check_password("aBc!")
+
+    def test_check_password_special(self):
+        self.rec_id._check_password("aB3d")
+        self.main_comp.password_special = 1
+        with self.assertRaises(UserError):
+            self.rec_id._check_password("aB3d")
+
+    def test_check_password_upper(self):
+        self.rec_id._check_password("ab3!")
+        self.main_comp.password_upper = 1
+        with self.assertRaises(UserError):
+            self.rec_id._check_password("ab3!")
 
     def test_save_password_crypt(self):
         self.assertEqual(
@@ -89,6 +119,7 @@ class TestResUsers(SavepointCase):
         )
 
     def test_an_old_password_is_expired(self):
+        self.main_comp.password_expiration = 1
         old_write_date = "1970-01-01 00:00:00"
         self.rec_id.write({"password_write_date": old_write_date})
         self.assertTrue(
@@ -132,7 +163,7 @@ class TestResUsers(SavepointCase):
         )
 
     def test_underscore_is_special_character(self):
-        self.assertTrue(self.main_comp.password_special)
+        self.main_comp.password_special = 1
         self.rec_id._check_password("asdQWE12345_3")
 
     def test_user_with_admin_rights_can_create_users(self):
