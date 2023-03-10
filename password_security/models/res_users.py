@@ -4,7 +4,9 @@
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl.html).
 
 import logging
+import random
 import re
+import string
 from datetime import datetime, timedelta
 
 from odoo import _, api, fields, models
@@ -79,6 +81,39 @@ class ResUsers(models.Model):
             self._check_password(password)
 
         return result
+
+    @api.model
+    def _new_test_pass(self, login=""):
+        """Helper function to create a test password for a given login.
+        Must return the same password each time it is called for the same login;
+        not cryptographically secure; for testing only."""
+        password = ""
+        random.seed(login)
+        if self.env.company.password_lower > 0:
+            password += "".join(
+                random.choice(string.ascii_lowercase)
+                for _ in range(self.env.company.password_lower)
+            )
+        if self.env.company.password_upper > 0:
+            password += "".join(
+                random.choice(string.ascii_uppercase)
+                for _ in range(self.env.company.password_upper)
+            )
+        if self.env.company.password_numeric > 0:
+            password += "".join(
+                random.choice(string.digits)
+                for _ in range(self.env.company.password_numeric)
+            )
+        if self.env.company.password_special > 0:
+            password += "".join(
+                random.choice(string.punctuation)
+                for _ in range(self.env.company.password_special)
+            )
+        if self.env.company.password_estimate > 0:
+            password += " correct horse battery staple"
+        if self.env.company.password_length > len(password):
+            password += "x" * (self.env.company.password_length - len(password))
+        return password
 
     @api.model
     def get_estimation(self, password):
